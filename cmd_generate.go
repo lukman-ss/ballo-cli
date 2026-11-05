@@ -47,8 +47,13 @@ func main() {
 		return ballo.JSON(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}), nil
 	})
 
+	addr := os.Getenv("HTTP_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    addr,
 		Handler: e,
 	}
 
@@ -63,7 +68,7 @@ func main() {
 		}
 	}()
 
-	log.Println("server starting on :8080")
+	log.Printf("server starting on %s", addr)
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}

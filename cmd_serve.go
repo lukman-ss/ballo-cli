@@ -34,8 +34,16 @@ func cmdServe(args []string) error {
 		return errors.New("no go.mod found in current directory; use 'generate' to create a project")
 	}
 
-	// Build current project
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(os.TempDir(), "ballo_cli_user_app"), ".")
+	// Build current project in a unique temp directory to avoid collisions
+	tmpDir, err := os.MkdirTemp("", "ballo_cli_user_app_*")
+	if err != nil {
+		return fmt.Errorf("temp dir: %w", err)
+	}
+	binPath := filepath.Join(tmpDir, "ballo_cli_user_app")
+	// Ensure cleanup on return
+	defer os.RemoveAll(tmpDir)
+
+	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 	buildCmd.Dir = cwd
@@ -45,8 +53,6 @@ func cmdServe(args []string) error {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	// Run built binary
-	binPath := filepath.Join(os.TempDir(), "ballo_cli_user_app")
 	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		return errors.New("binary not built")
 	}
@@ -55,29 +61,51 @@ func cmdServe(args []string) error {
 	srvCmd.Stdout = os.Stdout
 	srvCmd.Stderr = os.Stderr
 	srvCmd.Dir = cwd
+	// Pass address to app via documented contract (HTTP_ADDR)
+	srvCmd.Env = append(os.Environ(), "HTTP_ADDR="+addr)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	defer close(sigCh)
 
 	fmt.Printf("serving project from %s on %s\n", cwd, addr)
 	if err := srvCmd.Start(); err != nil {
 		return fmt.Errorf("start: %w", err)
 	}
 
+	done := make(chan error, 1)
 	go func() {
-		<-sigCh
-		srvCmd.Process.Signal(syscall.SIGTERM)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		<-ctx.Done()
-		srvCmd.Process.Kill()
+		done <- srvCmd.Wait()
 	}()
 
-	if err := srvCmd.Wait(); err != nil {
-		if strings.Contains(err.Error(), "signal: ") {
-			return nil
+	// Wait for signal or process exit
+	select {
+	case <-sigCh:
+		// Gracefully terminate child
+		if srvCmd.Process != nil {
+			_ = srvCmd.Process.Signal(syscall.SIGTERM)
 		}
-		return fmt.Errorf("run: %w", err)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		select {
+		case <-done:
+			cancel()
+		case <-ctx.Done():
+			cancel()
+			if srvCmd.Process != nil {
+				_ = srvCmd.Process.Kill()
+			}
+			// Drain done
+			<-done
+		}
+		return nil
+	case err := <-done:
+		if err != nil {
+			if strings.Contains(err.Error(), "signal: ") {
+				return nil
+			}
+			return fmt.Errorf("run: %w", err)
+		}
+		return nil
 	}
-	return nil
 }

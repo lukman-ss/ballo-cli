@@ -1,6 +1,6 @@
 module github.com/lukman-ss/ballo-cli
 
-go 1.26.0
+go 1.22
 
 require (
 	github.com/lukman-ss/ballo v0.1.0 // indirect

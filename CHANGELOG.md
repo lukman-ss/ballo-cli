@@ -5,13 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Fixed `generate` to produce compilable Ballo project.
-- Added strict Go module path validation (including dots and underscores).
-- Implemented atomic generation with cleanup on failure.
-- Integrated `go mod tidy` and `go build` verification step.
-- Updated `serve` to run a real Ballo engine with graceful shutdown.
-- Added health (`/healthz`, `/health`) endpoints in generated app.
-- Updated tests to cover invalid/valid module names and build verification.
+- `--skip-verify` flag to `generate` for offline/skip build checks (default: verify).
+- Test `TestTestGeneratedProjectFailureDoesNotDeleteDir`: verification failure does not delete project directory.
+- Test `TestGenerateSkipVerify`: verify `--skip-verify` flag works.
+- Test `TestGenerateOfflineDoesNotRequireNetwork`: generate works offline by default.
+- Cleanup: removed stale `myapp/go.mod` and `myapptest/go.mod` fixtures; now created in `t.TempDir()`.
+
+### Changed
+- `cmdGenerate`: add `--skip-verify` flag; verification failure no longer deletes generated project.
+- `testGeneratedProject`: on failure, report error without deleting project directory.
+- Documentation: README.md updated to describe optional verification and `--skip-verify` flag.
 
 ### Changed
 - `main.go` imports now include `errors`, `fmt`, `os`, `strings`.

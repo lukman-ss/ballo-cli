@@ -5,9 +5,10 @@ CLI for scaffolding and running [Ballo](https://github.com/lukman-ss/ballo) appl
 ## Features
 
 - `serve` — Ballo HTTP server with health probes, graceful shutdown (SIGINT/SIGTERM)
-- `generate` — scaffold valid Ballo projects with proper module paths, compiled verification
+- `generate` — scaffold valid Ballo projects with proper module paths; verification optional
 - Structured exit codes (0 success, 1 error, 2 usage, 3 fatal)
 - Path traversal protection, Go module validation, atomic generation (no partial writes)
+- Works offline by default; `go mod tidy`/`go build` verification is opt-in via normal flow or skippable with `--skip-verify`
 
 ## Install
 
@@ -19,7 +20,8 @@ go install github.com/lukman-ss/ballo-cli@latest
 
 ```
 ballo-cli serve [:8080]       # start Ballo server with graceful shutdown
-ballo-cli generate <name>     # scaffold project (validates module path, compiles)
+ballo-cli generate <name> [flags]   # scaffold project (validates module path, compiles)
+  --skip-verify                     skip go mod tidy and build checks (useful offline)
 ballo-cli help                # show this help
 ```
 

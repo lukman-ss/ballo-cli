@@ -91,11 +91,23 @@ func isValidModulePath(path string) bool {
 
 // cmdGenerate scaffolds a new Ballo project.
 func cmdGenerate(args []string) error {
-	if len(args) == 0 {
+	skipVerify := false
+	var name string
+	for _, arg := range args {
+		if arg == "--skip-verify" {
+			skipVerify = true
+			continue
+		}
+		if !strings.HasPrefix(arg, "-") && name == "" {
+			name = arg
+			continue
+		}
+	}
+
+	if name == "" {
 		return errors.New("missing project name")
 	}
 
-	name := args[0]
 	if !isValidModulePath(name) {
 		return errors.New("invalid project name: must be valid Go module path, no path traversal")
 	}
@@ -128,8 +140,10 @@ func cmdGenerate(args []string) error {
 		}
 	}
 
-	if err := testGeneratedProject(dest, name); err != nil {
-		return fmt.Errorf("verification: %w", err)
+	if !skipVerify {
+		if err := testGeneratedProject(dest, name); err != nil {
+			return fmt.Errorf("verification: %w", err)
+		}
 	}
 
 	fmt.Printf("generated: %s\n", dest)
@@ -162,7 +176,7 @@ func testGeneratedProject(dir, module string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(), "GO111MODULE=on")
 	if err := cmd.Run(); err != nil {
-		os.RemoveAll(dir)
+		// ponytail: keep project; caller decides removal.
 		return fmt.Errorf("go mod tidy: %w", err)
 	}
 
@@ -171,7 +185,6 @@ func testGeneratedProject(dir, module string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(), "GO111MODULE=on")
 	if err := cmd.Run(); err != nil {
-		os.RemoveAll(dir)
 		return fmt.Errorf("build failed: %w", err)
 	}
 

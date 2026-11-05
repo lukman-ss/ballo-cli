@@ -91,11 +91,11 @@ func isValidModulePath(path string) bool {
 
 // cmdGenerate scaffolds a new Ballo project.
 func cmdGenerate(args []string) error {
-	skipVerify := false
+	verify := false
 	var name string
 	for _, arg := range args {
-		if arg == "--skip-verify" {
-			skipVerify = true
+		if arg == "--verify" {
+			verify = true
 			continue
 		}
 		if !strings.HasPrefix(arg, "-") && name == "" {
@@ -140,9 +140,9 @@ func cmdGenerate(args []string) error {
 		}
 	}
 
-	if !skipVerify {
+	if verify {
 		if err := testGeneratedProject(dest, name); err != nil {
-			return fmt.Errorf("verification: %w", err)
+			return fmt.Errorf("verification failed for %s: %w", dest, err)
 		}
 	}
 

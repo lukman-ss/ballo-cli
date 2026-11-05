@@ -5,28 +5,19 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- `--skip-verify` flag to `generate` for offline/skip build checks (default: verify).
-- Test `TestTestGeneratedProjectFailureDoesNotDeleteDir`: verification failure does not delete project directory.
-- Test `TestGenerateSkipVerify`: verify `--skip-verify` flag works.
-- Test `TestGenerateOfflineDoesNotRequireNetwork`: generate works offline by default.
-- Cleanup: removed stale `myapp/go.mod` and `myapptest/go.mod` fixtures; now created in `t.TempDir()`.
+- Test `TestGenerateDefaultOffline`: verify generate is offline by default.
+- Test `TestVerificationSuccess`: verify `testGeneratedProject` succeeds when valid.
+- Test `TestServeNoGoMod`: verify `serve` fails when no `go.mod` present.
 
 ### Changed
-- `cmdGenerate`: add `--skip-verify` flag; verification failure no longer deletes generated project.
-- `testGeneratedProject`: on failure, report error without deleting project directory.
-- Documentation: README.md updated to describe optional verification and `--skip-verify` flag.
+- `cmdGenerate`: default offline; `--verify` flag triggers `go mod tidy`/`go build`.
+- `cmdGenerate`: on verification failure, reports project location + cause; keeps project directory.
+- `cmdServe`: runs current project binary (not CLI's Ballo server); builds and starts app in cwd.
+- `README.md`: reflect offline-by-default, `--verify` flag, `serve` runs user project.
 
-### Changed
-- `main.go` imports now include `errors`, `fmt`, `os`, `strings`.
-- `cmd_serve.go` now starts a Ballo server with proper middleware.
-- `cmd_generate.go` now validates project names and runs module tidy/build.
-
-### Fixed
-- Compilation errors due to undefined `NewApp`, `addr`.
-- `serve` used custom mux instead of Ballo engine.
-- Missing validation allowed path traversal.
-- Generation left half‑done files on write errors.
-- Signal handling blocked on `srv.Close` without graceful shutdown.
+### Removed
+- `--skip-verify` flag (replaced by `--verify`).
+- Stale health-check-only `serve` implementation (now runs user project).
 
 ## [0.2.0] - 2026-11-05
 

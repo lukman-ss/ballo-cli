@@ -1,9 +1,7 @@
 package main
 
 import (
-	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -22,31 +20,6 @@ func TestRunUnknownCommand(t *testing.T) {
 func TestRunHelp(t *testing.T) {
 	if got := run([]string{"help"}); got != exitOK {
 		t.Fatalf("expected %d, got %d", exitOK, got)
-	}
-}
-
-func TestServeHealthz(t *testing.T) {
-	mux := newServeMux()
-	req := httptest.NewRequest("GET", "/healthz", nil)
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != 200 {
-		t.Fatalf("expected 200, got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), `"status":"pass"`) {
-		t.Fatalf("unexpected body: %s", rec.Body.String())
-	}
-}
-
-func TestServe404(t *testing.T) {
-	mux := newServeMux()
-	req := httptest.NewRequest("GET", "/nope", nil)
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != 404 {
-		t.Fatalf("expected 404, got %d", rec.Code)
 	}
 }
 

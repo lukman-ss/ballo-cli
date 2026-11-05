@@ -2,83 +2,82 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
-
-	"github.com/lukman-ss/ballo"
 )
 
 // defaultAddr is the default HTTP listen address.
 const defaultAddr = ":8080"
 
-// cmdServe builds and starts a Ballo application server on addr.
+// cmdServe runs the Go application in the current directory.
 func cmdServe(args []string) error {
 	addr := defaultAddr
 	if len(args) > 0 {
 		addr = args[0]
 	}
 
-	e := ballo.New()
-	e.Use(ballo.RecoveryMiddleware())
+	// Ensure current directory has a go.mod
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("current directory: %w", err)
+	}
 
-	e.GET("/healthz", func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusOK, map[string]string{"status": "pass"}), nil
-	})
+	goModPath := filepath.Join(cwd, "go.mod")
+	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+		return errors.New("no go.mod found in current directory; use 'generate' to create a project")
+	}
 
-	e.GET("/health", func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusOK, map[string]string{"status": "ok"}), nil
-	})
+	// Build current project
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(os.TempDir(), "ballo_cli_user_app"), ".")
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	buildCmd.Dir = cwd
+	buildCmd.Env = append(os.Environ(), "GO111MODULE=on")
 
-	e.NotFound(func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusNotFound, map[string]string{"error": "not found"}), nil
-	})
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("build failed: %w", err)
+	}
 
-	e.MethodNotAllowed(func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}), nil
-	})
+	// Run built binary
+	binPath := filepath.Join(os.TempDir(), "ballo_cli_user_app")
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
+		return errors.New("binary not built")
+	}
 
-	srv := &http.Server{Addr: addr, Handler: e}
+	srvCmd := exec.Command(binPath)
+	srvCmd.Stdout = os.Stdout
+	srvCmd.Stderr = os.Stderr
+	srvCmd.Dir = cwd
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	fmt.Printf("serving on %s\n", addr)
+	fmt.Printf("serving project from %s on %s\n", cwd, addr)
+	if err := srvCmd.Start(); err != nil {
+		return fmt.Errorf("start: %w", err)
+	}
+
 	go func() {
 		<-sigCh
+		srvCmd.Process.Signal(syscall.SIGTERM)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "server shutdown error: %v\n", err)
-		}
+		<-ctx.Done()
+		srvCmd.Process.Kill()
 	}()
 
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		return err
+	if err := srvCmd.Wait(); err != nil {
+		if strings.Contains(err.Error(), "signal: ") {
+			return nil
+		}
+		return fmt.Errorf("run: %w", err)
 	}
 	return nil
-}
-
-// newServeMux returns the default serve mux used by serve (exposed for tests).
-func newServeMux() *http.ServeMux {
-	e := ballo.New()
-	e.Use(ballo.RecoveryMiddleware())
-	e.GET("/healthz", func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusOK, map[string]string{"status": "pass"}), nil
-	})
-	e.GET("/health", func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusOK, map[string]string{"status": "ok"}), nil
-	})
-	e.NotFound(func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusNotFound, map[string]string{"error": "not found"}), nil
-	})
-	e.MethodNotAllowed(func(req *ballo.Request) (*ballo.Response, error) {
-		return ballo.JSON(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}), nil
-	})
-	mux := http.NewServeMux()
-	mux.Handle("/", e)
-	return mux
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 const (
@@ -48,6 +50,17 @@ func run(args []string) int {
 // mainWithoutExit returns exit code without calling os.Exit (for tests).
 func mainWithoutExit() int {
 	return run(os.Args[1:])
+}
+
+// validateProjectName checks if name is a valid Go module path.
+func validateProjectName(name string) error {
+	if name == "" || len(name) > 256 {
+		return errors.New("invalid project name: empty or too long")
+	}
+	if strings.HasPrefix(name, ".") || strings.Contains(name, "..") {
+		return errors.New("invalid project name: path traversal detected")
+	}
+	return nil
 }
 
 func printHelp() {

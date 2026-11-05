@@ -2,34 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
-Format follows [Keep a Changelog](https://keepachangelog.com/id/1.1.0/).
-
 ## [Unreleased]
 
 ### Added
-
-- Initial CLI foundation
-- `serve` command with healthz endpoint
-- `generate` command to scaffold projects
-- Help output and consistent exit codes
-- Unit tests for parsing and commands
+- Fixed `generate` to produce compilable Ballo project.
+- Added strict Go module path validation (including dots and underscores).
+- Implemented atomic generation with cleanup on failure.
+- Integrated `go mod tidy` and `go build` verification step.
+- Updated `serve` to run a real Ballo engine with graceful shutdown.
+- Added health (`/healthz`, `/health`) endpoints in generated app.
+- Updated tests to cover invalid/valid module names and build verification.
 
 ### Changed
-
-- Nothing yet
-
-### Deprecated
-
-- Nothing yet
-
-### Removed
-
-- Nothing yet
+- `main.go` imports now include `errors`, `fmt`, `os`, `strings`.
+- `cmd_serve.go` now starts a Ballo server with proper middleware.
+- `cmd_generate.go` now validates project names and runs module tidy/build.
 
 ### Fixed
+- Compilation errors due to undefined `NewApp`, `addr`.
+- `serve` used custom mux instead of Ballo engine.
+- Missing validation allowed path traversal.
+- Generation left half‑done files on write errors.
+- Signal handling blocked on `srv.Close` without graceful shutdown.
 
-- Nothing yet
+## [0.2.0] - 2026-11-05
 
-### Security
+### Added
+- Initial implementation of generation and serve commands.
 
-- Nothing yet
+## [0.1.0] - 2026-10-30
+
+- Initial CLI foundation.

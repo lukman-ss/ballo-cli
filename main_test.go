@@ -76,3 +76,43 @@ func TestGenerateSucceeds(t *testing.T) {
 		t.Fatal(".env.example not created")
 	}
 }
+
+func TestGenerateInvalidName(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(dir)
+
+	cases := []string{
+		"../evil",
+		"./evil",
+		"a/b../c",
+		"../../x",
+		"/abs/path",
+		".dotfile",
+	}
+	for _, name := range cases {
+		if err := cmdGenerate([]string{name}); err == nil {
+			t.Fatalf("expected error for invalid name %q", name)
+		}
+	}
+}
+
+func TestGenerateValidName(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(dir)
+
+	cases := []string{
+		"myapp",
+		"github.com/user/myapp",
+		"github.com/user/my-app/v2",
+	}
+	for _, name := range cases {
+		if err := cmdGenerate([]string{name}); err != nil {
+			t.Fatalf("unexpected error for valid name %q: %v", name, err)
+		}
+		_ = os.RemoveAll(name)
+	}
+}
